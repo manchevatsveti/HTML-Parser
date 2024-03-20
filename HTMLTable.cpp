@@ -12,6 +12,63 @@ namespace HTMLTableTypes {
 	const char* END_CELL = "/td";
 }
 
+void HTMLTable::editRow(int rowId, int colId, const char* newValue)
+{
+	if (rowId < 1 || rowId > rows || colId < 1 || colId > maxCols || !newValue) {
+		std::cerr << "Invalid cell parameters.";
+	}
+
+	table[rowId - 1].changeText(colId - 1, newValue);//the columns and rows start from 1
+
+}
+
+void HTMLTable::add(int rowId, const char* newValue)
+{
+	if (rowId < 1 || rowId > rows + 1) {//beacuse the columns and row start from 1
+		std::cerr << "Invalid index to add a row to.";
+		return;
+	}
+	
+	rowId--;
+	shiftRowsBack(rowId);
+
+	std::stringstream ss(newValue);
+
+	int cellId = 0;
+
+	while (!ss.eof()) {
+
+		if (cellId >= MAX_LENGTH_ROW) {
+			break;
+		}
+
+		char buff[MAX_LENGTH];
+		ss.getline(buff, MAX_LENGTH, SEP);
+
+		table[rowId].addCell(buff, 'c', cellId);
+		cellId++;
+	}
+
+	table[rowId].cellCount = cellId;
+
+	rows++;
+	if (table[rowId].cellCount > maxCols) maxCols = table[rowId].cellCount;
+}
+
+void HTMLTable::remove(int rowId)
+{
+	if (rowId < 1 || rowId > rows + 1) {//beacuse the columns and row start from 1
+		std::cerr << "Invalid index to remove a row from.";
+		return;
+	}
+	rowId--;
+
+	shiftRowsFront(rowId);
+	rows--;
+
+	calculateColumns();
+}
+
 void HTMLTable::print() const
 {
 	int* maxColLen = new int [maxCols] {0};
@@ -46,11 +103,21 @@ void HTMLTable::calculateMaxColLen(int*& arr) const
 			}
 		}
 	}
+}
 
-	/*for (int i = 0; i < 4; i++) {
-		std::cout << arr[i] << " ";
+void HTMLTable::calculateColumns()
+{
+	int maxLen = 0;
+
+	for (int i = 0; i < rows; i++) {
+		if (table[i].cellCount > maxLen) {
+			maxLen = table[i].cellCount;
+		}
 	}
-	std::cout << std::endl;*/
+
+	if (maxLen != maxCols) {
+		maxCols = maxLen;
+	}
 }
 
 void HTMLTable::readTableFromFile(std::ifstream& ifs)
@@ -180,6 +247,52 @@ bool HTMLTable::validOpenindChar(std::ifstream& ifs)
 	return ifs.get() == '<';
 }
 
+void HTMLTable::shiftRowsBack(int id)
+{
+	for (int i = rows; i >= id; i--) {
+		changeRow(i, table[i-1]);
+	}
+}
+
+void HTMLTable::shiftRowsFront(int id)
+{
+	for (int i = id; i < rows; i++) {
+		changeRow(i, table[i + 1]);
+	}
+}
+
+void HTMLTable::changeRow(int id, const Row& newRow)
+{
+	int rows = newRow.cellCount > table[id].cellCount ? newRow.cellCount : table[id].cellCount;
+
+	for (int i = 0; i < rows; i++) {
+		table[id].changeCell(i, newRow.getField(i));
+	}
+}
+
+void HTMLTable::writeToFile(const char* filename)
+{
+	std::ofstream ofs(filename, std::ios::out);
+
+	if (!ofs.is_open()) {
+		std::cerr << "Unable to open file for writing!";
+		return;
+	}
+
+	writeTableToFile(ofs);
+}
+
+void HTMLTable::writeTableToFile(std::ofstream& ofs)
+{
+	ofs << "<" << HTMLTableTypes::TABLE << ">" << std::endl;
+
+	for (int i = 0; i < rows; i++) {
+		table[i].writeRowToFile(ofs, maxCols);
+	}
+
+	ofs << "<" << HTMLTableTypes::END_TABLE << ">" << std::endl;
+}
+
 void HTMLTable::Row::addCell(const char* data, char type, int cellIndex)
 {
 	strcpy(row[cellIndex].fieldText, data);
@@ -198,6 +311,42 @@ void HTMLTable::Row::align(int n) const
 	for (int i = 0; i < n; i++) {
 		std::cout << " ";
 	}
+}
+
+void HTMLTable::Row::changeText(int id, const char* newValue)
+{
+	if (newValue) {
+		strcpy(row[id].fieldText, newValue);
+	}
+	else {
+		std::cerr << "Inavild new value.";
+	}
+}
+
+const HTMLTable::Field& HTMLTable::Row::getField(int id) const
+{
+	return row[id];
+}
+
+void HTMLTable::Row::changeCell(int id, const Field& newCell)
+{
+	if (id < 0 || id >= MAX_LENGTH_ROW) {
+		std::cout << "Invalid index.";
+	}
+
+	row[id].type = newCell.type;
+	strcpy(row[id].fieldText, newCell.fieldText);
+}
+
+void HTMLTable::Row::writeRowToFile(std::ofstream& ofs, int fullRowLen)
+{
+	ofs << "<" << HTMLTableTypes::ROW << ">" << std::endl;
+
+	for (int i = 0; i < fullRowLen; i++) {
+		row[i].writeFieldToFile(ofs);
+	}
+
+	ofs << "<" << HTMLTableTypes::END_ROW << ">" << std::endl;
 }
 
 void HTMLTable::Row::print(const int* colsLen, int fullRowLen) const
@@ -220,3 +369,16 @@ void HTMLTable::Row::print(const int* colsLen, int fullRowLen) const
 	}
 }
 
+void HTMLTable::Field::writeFieldToFile(std::ofstream& ofs)
+{
+	if (type == 'h') {
+		ofs << "<" << HTMLTableTypes::FIELD << ">";
+		ofs << fieldText;
+		ofs << "<" << HTMLTableTypes::END_FIELD << ">" << std::endl;
+	}
+	else if (type == 'c') {
+		ofs << "<" << HTMLTableTypes::CELL << ">";
+		ofs << fieldText;
+		ofs << "<" << HTMLTableTypes::END_CELL << ">" << std::endl;
+	}
+}
