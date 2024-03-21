@@ -9,9 +9,12 @@ namespace {
 	int const MAX_LENGTH_FIELD = 50;
 	int const MAX_LENGTH_ROW = 15;
 	int const MAX_LENGTH_TABLE = 100;
-	int const MAX_LENGTH = 1024;
+	int const MAX_LENGTH = 200;
 	const int STARS_LEN = 2;
+	const int MAX_ASCIICODE_LEN = 3;
 	const char SEP = ',';
+	const char ENTITY_BEG = '&';
+	const char ENTITY_BEG_NUM = '#';//in entities the numbers start with '#'
 }
 
 class HTMLTable
@@ -22,6 +25,10 @@ private:
 		char type = 'c'; // h - header, c - cell
 
 		void writeFieldToFile(std::ofstream& ofs);
+
+		static const char* interpretText(const char* str);//not object related
+		static char entityConvert(std::stringstream& ss);//not object related
+		static bool isDigit(char ch);//not object related
 	};
 
 	struct Row {

@@ -20,7 +20,7 @@ void HTMLTable::editRow(int rowId, int colId, const char* newValue)
 	rowId--;
 	colId--;
 
-	table[rowId].changeText(colId, newValue);//the columns and rows start from 1
+	table[rowId].changeText(colId, Field::interpretText(newValue));//the columns and rows start from 1
 
 	if (table[rowId].cellCount <= colId) {
 		table[rowId].cellCount = colId;
@@ -59,7 +59,7 @@ void HTMLTable::add(int rowId, const char* newValue)
 		char buff[MAX_LENGTH];
 		ss.getline(buff, MAX_LENGTH, SEP);
 
-		table[rowId].addCell(buff, 'c', cellId);
+		table[rowId].addCell(Field::interpretText(buff), 'c', cellId);
 		cellId++;
 	}
 
@@ -246,6 +246,8 @@ bool HTMLTable::createCell(std::ifstream& ifs,int rowIndex, int cellIndex, char 
 		return false;
 	}
 
+	strcpy(buff,Field::interpretText(buff));//becasue the arrays are static we can rewrite the true text on the old buff
+
 	char closingAttrb[MAX_LENGTH];
 	ifs.getline(closingAttrb, MAX_LENGTH, '>');
 
@@ -307,6 +309,57 @@ void HTMLTable::clearRow(int id)
 	for (int i = 0; i < maxCols; i++) {
 		table[id].changeCell(i, { "",'c' });
 	}
+}
+
+const char* HTMLTable::Field::interpretText(const char* str)
+{
+	char buff[MAX_LENGTH_FIELD] = "";
+	int id = 0;
+
+	std::stringstream ss(str);
+
+	while(true) {
+		char temp = ss.get();
+
+		if (ss.eof()) break;
+
+		if (temp != ENTITY_BEG) {
+			buff[id++] = temp;
+		}
+		else {
+			buff[id++] = entityConvert(ss);
+		}
+	}
+	return buff;
+}
+
+char HTMLTable::Field::entityConvert(std::stringstream& ss)
+{
+	int ASCIICode = 0;
+	char temp = ss.get();
+
+	if (temp != ENTITY_BEG_NUM) {//this means the '&' is not a beginning of entity, it is just a symbol
+		ss.seekg(-1, std::ios::cur);//continue reading like normally;
+		return ENTITY_BEG;
+	}
+
+	for (int i = 0; i < MAX_ASCIICODE_LEN; i++) {
+		temp = ss.get();
+
+		if (!isDigit(temp)) {
+			ss.seekg(-1, std::ios::cur);
+			break;
+		}
+
+		ASCIICode = ASCIICode * 10 + (temp - '0');
+	}
+
+	return (char)ASCIICode;
+ }
+
+bool HTMLTable::Field::isDigit(char ch) 
+{
+	return (ch>='0' && ch<='9');
 }
 
 void HTMLTable::changeRow(int id, const Row& newRow)
