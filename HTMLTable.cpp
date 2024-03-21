@@ -17,15 +17,25 @@ void HTMLTable::editRow(int rowId, int colId, const char* newValue)
 	if (rowId < 1 || rowId > rows || colId < 1 || colId > maxCols || !newValue) {
 		std::cerr << "Invalid cell parameters.";
 	}
+	rowId--;
+	colId--;
 
-	table[rowId - 1].changeText(colId - 1, newValue);//the columns and rows start from 1
+	table[rowId].changeText(colId, newValue);//the columns and rows start from 1
 
+	if (table[rowId].cellCount <= colId) {
+		table[rowId].cellCount = colId;
+	}
 }
 
 void HTMLTable::add(int rowId, const char* newValue)
 {
 	if (rowId < 1 || rowId > rows + 1) {//beacuse the columns and row start from 1
 		std::cerr << "Invalid index to add a row to.";
+		return;
+	}
+
+	if (!newValue) {
+		std::cerr << "Invalid new value.";
 		return;
 	}
 	
@@ -82,16 +92,16 @@ void HTMLTable::print() const
 	delete[] maxColLen;
 }
 
-void HTMLTable::readTable(const char* filename)
+bool HTMLTable::readTable(const char* filename)
 {
 	std::ifstream ifs(filename, std::ios::in);
 
 	if (!ifs.is_open()) {
 		std::cerr << "Invalid filename.";
-		return;
+		return false;
 	}
 
-	readTableFromFile(ifs);
+	return readTableFromFile(ifs);
 }
 
 void HTMLTable::calculateMaxColLen(int*& arr) const
@@ -120,20 +130,22 @@ void HTMLTable::calculateColumns()
 	}
 }
 
-void HTMLTable::readTableFromFile(std::ifstream& ifs)
+bool HTMLTable::readTableFromFile(std::ifstream& ifs)
 {
 	char buff[MAX_LENGTH];
-	if (!validOpenindChar(ifs))
+	if (!validOpenindChar(ifs)) {
 		std::cerr << "Invalid file format.";
+		return false;
+	}
 
 	ifs.getline(buff, MAX_LENGTH, '>');
 	if (strcmp(buff,HTMLTableTypes::TABLE) == 0) {
-		createTable(ifs);
+		return createTable(ifs);
 	}
-	//what happens if it is not a table
+	return false;
 }
 
-void HTMLTable::createTable(std::ifstream& ifs)
+bool HTMLTable::createTable(std::ifstream& ifs)
 {
 	int rowIndex = 0;
 	int maxColsLen = 0;
@@ -144,18 +156,20 @@ void HTMLTable::createTable(std::ifstream& ifs)
 
 		if (!validOpenindChar(ifs)) {
 			std::cerr << "Invalid file format.";
-			return;
+			return false;
 		}
 
 		ifs.getline(buff, MAX_LENGTH, '>');
 
 		if (ifs.eof()) {//if the getline function raised the eof bit the next lines are useless
 			std::cerr << "Invalid file format.";
-			return;
+			return false;
 		}
 
 		if (strcmp(buff, HTMLTableTypes::ROW) == 0) {
-			createRow(ifs,rowIndex);
+			if (!createRow(ifs, rowIndex)) {
+				return false;
+			}
 
 			if (maxColsLen < table[rowIndex].cellCount)
 				maxColsLen = table[rowIndex].cellCount;
@@ -166,9 +180,10 @@ void HTMLTable::createTable(std::ifstream& ifs)
 	}
 	rows = rowIndex;
 	maxCols = maxColsLen;
+	return true;
 }
 
-void HTMLTable::createRow(std::ifstream& ifs,int rowIndex)
+bool HTMLTable::createRow(std::ifstream& ifs,int rowIndex)
 {
 	int cellIndex = 0;
 
@@ -178,36 +193,42 @@ void HTMLTable::createRow(std::ifstream& ifs,int rowIndex)
 
 		if (!validOpenindChar(ifs)) {
 			std::cerr << "Invalid file format.";
-			return;
+			return false;
 		}
 
 		ifs.getline(buff, MAX_LENGTH, '>');
 
 		if (ifs.eof()) {//if the getline function raised the eof bit the next lines are useless
 			std::cerr << "Invalid file format.";
-			return;
+			return false;
 		}
 
 		if (strcmp(buff, HTMLTableTypes::FIELD) == 0) {
-			createCell(ifs, rowIndex, cellIndex , 'h');
+			if (!createCell(ifs, rowIndex, cellIndex, 'h'))
+				return false;
+
 			cellIndex++;
 		}
 		if (strcmp(buff, HTMLTableTypes::CELL) == 0) {
-			createCell(ifs, rowIndex, cellIndex, 'c');
+			if (!createCell(ifs, rowIndex, cellIndex, 'c')) 
+				return false;
+			
 			cellIndex++;
 		}
 	}
 	table[rowIndex].cellCount = cellIndex;
+
+	return true;
 }
 
-void HTMLTable::createCell(std::ifstream& ifs,int rowIndex, int cellIndex, char type)
+bool HTMLTable::createCell(std::ifstream& ifs,int rowIndex, int cellIndex, char type)
 {
 	char buff[MAX_LENGTH];
 	ifs.getline(buff, MAX_LENGTH, '<');
 
 	if (ifs.eof()) {
 		std::cerr << "Invalid file format.";
-		return;
+		return false;
 	}
 
 	char closingAttrb[MAX_LENGTH];
@@ -216,17 +237,18 @@ void HTMLTable::createCell(std::ifstream& ifs,int rowIndex, int cellIndex, char 
 	if (type == 'f') {
 		if (strcmp(closingAttrb, HTMLTableTypes::END_FIELD) != 0) {
 			std::cerr << "Invalid file format.";
-			return;
+			return false;
 		}
 	}
 
 	if (type == 'c') {
 		if (strcmp(closingAttrb, HTMLTableTypes::END_CELL) != 0) {
 			std::cerr << "Invalid file format.";
-			return;
+			return false;
 		}
 	}
 	table[rowIndex].addCell(buff, type, cellIndex);
+	return true;
 }
 
 bool HTMLTable::validOpenindChar(std::ifstream& ifs)
@@ -249,6 +271,10 @@ bool HTMLTable::validOpenindChar(std::ifstream& ifs)
 
 void HTMLTable::shiftRowsBack(int id)
 {
+	if (id<0 || id>rows) {
+		std::cerr << "Invalid input." <<std::endl;
+		return;
+	}
 	for (int i = rows; i >= id; i--) {
 		changeRow(i, table[i-1]);
 	}
@@ -344,6 +370,7 @@ void HTMLTable::Row::writeRowToFile(std::ofstream& ofs, int fullRowLen)
 
 	for (int i = 0; i < fullRowLen; i++) {
 		row[i].writeFieldToFile(ofs);
+		//ofs << row[i].fieldText;
 	}
 
 	ofs << "<" << HTMLTableTypes::END_ROW << ">" << std::endl;

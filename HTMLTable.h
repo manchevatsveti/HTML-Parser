@@ -19,7 +19,7 @@ class HTMLTable
 private:
 	struct Field {
 		char fieldText[MAX_LENGTH_FIELD];
-		char type; // h - header, c - cell
+		char type = 'c'; // h - header, c - cell
 
 		void writeFieldToFile(std::ofstream& ofs);
 	};
@@ -33,7 +33,7 @@ private:
 		void print(const int* colsLen, int fullRowLen) const;
 		void align(int n) const;
 
-		void changeText(int id, const char* newValue); 
+		void changeText(int id,const char* newValue); 
 		const Field& getField(int id) const;
 		void changeCell(int id, const Field& newCell);
 		void writeRowToFile(std::ofstream& ofs, int fullRowLen);
@@ -42,11 +42,11 @@ private:
 	int rows;
 	int maxCols;
 	
-	void readTableFromFile(std::ifstream& ifs);
+	bool readTableFromFile(std::ifstream& ifs);
 
-	void createTable(std::ifstream& ifs);
-	void createRow(std::ifstream& ifs, int rowIndex);
-	void createCell(std::ifstream& ifs, int rowIndex, int cellIndex, char type);
+	bool createTable(std::ifstream& ifs);
+	bool createRow(std::ifstream& ifs, int rowIndex);
+	bool createCell(std::ifstream& ifs, int rowIndex, int cellIndex, char type);
 	bool validOpenindChar(std::ifstream& ifs);
 
 	void shiftRowsBack(int id);
@@ -59,7 +59,7 @@ private:
 	void calculateColumns();
 
 public:
-	void readTable(const char* filename);
+	bool readTable(const char* filename);
 
 	void editRow(int rowId, int colId, const char* newValue);
 	void add(int rowId, const char* newValue);//let's assume the ne column values are separeted by ','

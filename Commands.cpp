@@ -54,38 +54,45 @@ void Commands::createExitFunc(const char* filename)
 
 void Commands::initCommand()
 {
-	char filename[100];
-
-	std::cin >> filename;
-
-	table.readTable(filename);
-
 	while (true) {
-		std::cout << CONSOLE_MESSAGE << std::endl;
+		char filename[100];
 
-		int input;
-		std::cin >> input;
+		std::cin >> filename;
 
-		switch (input) {
-		case 1:
-			createAddFunc();
-			break;
-		case 2: 
-			createRemoveFunc();
-			break;
-		case 3:
-			createEditFunc();
-			break;
-		case 4:
-			createPrintFunc();
-			break;
-		case 5:
-			createExitFunc(filename);
-			return;
-		default:
-			std::cerr << "Invalid input"<<std::endl;
+		if (!table.readTable(filename)) {
+			std::cerr << "Invalid file format." << std::endl;
 		}
+		else {
+			while (true) {
+				std::cout << CONSOLE_MESSAGE << std::endl;
 
+				int input;
+				std::cin >> input;
+
+				switch (input) {
+				case 1:
+					createAddFunc();
+					break;
+				case 2:
+					createRemoveFunc();
+					break;
+				case 3:
+					createEditFunc();
+					break;
+				case 4:
+					createPrintFunc();
+					break;
+				case 5:
+					createExitFunc(filename);
+					return;
+				default:
+					std::cerr << "Invalid input" << std::endl;
+				}
+
+			}
+		}
 	}
 }
+
+	
 
