@@ -11,6 +11,9 @@ void Commands::createAddFunc()
 	char newValues[MAX_LENGTH];
 	std::cout << "Add row at index: " << std::endl;
 	std::cin >> rowId;
+
+	if (!validateIndex_addFunc(rowId)) return;
+
 	std::cout << "Enter the values of the row, separeted by commas - ','. " << std::endl;
 	std::cin >> newValues;
 	std::cout << std::endl;
@@ -23,7 +26,6 @@ void Commands::createRemoveFunc()
 	int rowId;
 	std::cout << "Remove row at index: " << std::endl;
 	std::cin >> rowId;
-	std::cout << std::endl;
 
 	table.remove(rowId);
 }
@@ -34,6 +36,9 @@ void Commands::createEditFunc()
 	char newValue[MAX_LENGTH];
 	std::cout << "Edit cell at row and column: " << std::endl;
 	std::cin >> rowId >> colId;
+
+	if (!validateIndex_editFunc(rowId,colId)) return;
+
 	std::cout << "Enter the new value of the cell." << std::endl;
 	std::cin >> newValue;
 	std::cout << std::endl;
@@ -52,6 +57,28 @@ void Commands::createExitFunc(const char* filename)
 	table.writeToFile(filename);
 }
 
+bool Commands::validateIndex_addFunc(int id) const
+{
+	if (id < 1 || id > table.getRows() + 1) {//beacuse the columns and row start from 1
+		std::cerr << "Invalid index to add a row to." << std::endl;
+		return false;
+	}
+	return true;
+}
+
+bool Commands::validateIndex_editFunc(int rowId, int colId) const
+{
+	if (rowId < 1 || rowId > table.getRows()) {
+		std::cerr << "Invalid row index." << std::endl;
+		return false;
+	}
+	if (colId < 1 || colId > table.getMaxCols()) {
+		std::cerr << "Invalid column index." << std::endl;
+		return false;
+	}
+	return true;
+}
+
 void Commands::initCommand()
 {
 	while (true) {
@@ -60,7 +87,7 @@ void Commands::initCommand()
 		std::cin >> filename;
 
 		if (!table.readTable(filename)) {
-			std::cerr << "Invalid file format." << std::endl;
+			std::cerr << "Try entering the filename again." << std::endl;
 		}
 		else {
 			while (true) {

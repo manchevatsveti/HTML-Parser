@@ -12,6 +12,8 @@ class Commands
 	void createPrintFunc();
 	void createExitFunc(const char* filename);
 
+	bool validateIndex_addFunc(int id) const;
+	bool validateIndex_editFunc(int rowId, int colId) const;
 public:
 	void initCommand();
 

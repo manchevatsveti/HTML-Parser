@@ -51,6 +51,7 @@ private:
 
 	void shiftRowsBack(int id);
 	void shiftRowsFront(int id);
+	void clearRow(int id);
 	void changeRow(int id, const Row& newRow);
 
 	void writeTableToFile(std::ofstream& ofs);
@@ -59,6 +60,9 @@ private:
 	void calculateColumns();
 
 public:
+	int getRows() const;
+	int getMaxCols() const;
+
 	bool readTable(const char* filename);
 
 	void editRow(int rowId, int colId, const char* newValue);

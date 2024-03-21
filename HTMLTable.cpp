@@ -30,17 +30,21 @@ void HTMLTable::editRow(int rowId, int colId, const char* newValue)
 void HTMLTable::add(int rowId, const char* newValue)
 {
 	if (rowId < 1 || rowId > rows + 1) {//beacuse the columns and row start from 1
-		std::cerr << "Invalid index to add a row to.";
+		std::cerr << "Invalid index to add a row to." <<std::endl;
 		return;
 	}
 
 	if (!newValue) {
-		std::cerr << "Invalid new value.";
+		std::cerr << "Invalid new value."<<std::endl;
 		return;
 	}
 	
 	rowId--;
-	shiftRowsBack(rowId);
+
+	if(rowId != rows)//if we add at the very end there is no need for shifting
+		shiftRowsBack(rowId);
+
+	clearRow(rowId);
 
 	std::stringstream ss(newValue);
 
@@ -67,8 +71,9 @@ void HTMLTable::add(int rowId, const char* newValue)
 
 void HTMLTable::remove(int rowId)
 {
-	if (rowId < 1 || rowId > rows + 1) {//beacuse the columns and row start from 1
-		std::cerr << "Invalid index to remove a row from.";
+	if (rowId < 1 || rowId > rows) {//beacuse the columns and row start from 1
+		std::cerr << "Invalid index to remove a row from." << std::endl;
+		std::cout << std::endl;
 		return;
 	}
 	rowId--;
@@ -90,6 +95,16 @@ void HTMLTable::print() const
 	}
 
 	delete[] maxColLen;
+}
+
+int HTMLTable::getRows() const
+{
+	return rows;
+}
+
+int HTMLTable::getMaxCols() const
+{
+	return maxCols;
 }
 
 bool HTMLTable::readTable(const char* filename)
@@ -271,11 +286,11 @@ bool HTMLTable::validOpenindChar(std::ifstream& ifs)
 
 void HTMLTable::shiftRowsBack(int id)
 {
-	if (id<0 || id>rows) {
+	if (id < 0 || id >= rows) {
 		std::cerr << "Invalid input." <<std::endl;
 		return;
 	}
-	for (int i = rows; i >= id; i--) {
+	for (int i = rows; i > id; i--) {
 		changeRow(i, table[i-1]);
 	}
 }
@@ -284,6 +299,13 @@ void HTMLTable::shiftRowsFront(int id)
 {
 	for (int i = id; i < rows; i++) {
 		changeRow(i, table[i + 1]);
+	}
+}
+
+void HTMLTable::clearRow(int id)
+{
+	for (int i = 0; i < maxCols; i++) {
+		table[id].changeCell(i, { "",'c' });
 	}
 }
 
