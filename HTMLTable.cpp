@@ -2,12 +2,12 @@
 
 namespace HTMLTableTypes {
 	const char* TABLE = "table";
-	const char* FIELD = "th";
+	const char* HEADER = "th";
 	const char* ROW = "tr";
 	const char* CELL = "td";
 
 	const char* END_TABLE = "/table";
-	const char* END_FIELD = "/th";
+	const char* END_HEADER = "/th";
 	const char* END_ROW = "/tr";
 	const char* END_CELL = "/td";
 }
@@ -20,7 +20,7 @@ void HTMLTable::editRow(int rowId, int colId, const char* newValue)
 	rowId--;
 	colId--;
 
-	table[rowId].changeText(colId, Field::interpretText(newValue));//the columns and rows start from 1
+	table[rowId].changeText(colId, HelperFunctions::interpretText(newValue));//the columns and rows start from 1
 
 	if (table[rowId].cellCount <= colId) {
 		table[rowId].cellCount = colId;
@@ -39,12 +39,12 @@ void HTMLTable::add(int rowId, const char* newValue)
 		return;
 	}
 	
-	rowId--;
+	rowId--;//make the index start from 0
 
 	if(rowId != rows)//if we add at the very end there is no need for shifting
 		shiftRowsBack(rowId);
 
-	clearRow(rowId);
+	table[rowId].clearRow(maxCols);
 
 	std::stringstream ss(newValue);
 
@@ -59,7 +59,7 @@ void HTMLTable::add(int rowId, const char* newValue)
 		char buff[MAX_LENGTH];
 		ss.getline(buff, MAX_LENGTH, SEP);
 
-		table[rowId].addCell(Field::interpretText(buff), 'c', cellId);
+		table[rowId].addCell(HelperFunctions::interpretText(buff), CellType::cell, cellId);
 		cellId++;
 	}
 
@@ -148,7 +148,7 @@ void HTMLTable::calculateColumns()
 bool HTMLTable::readTableFromFile(std::ifstream& ifs)
 {
 	char buff[MAX_LENGTH];
-	if (!validOpenindChar(ifs)) {
+	if (!HelperFunctions::validOpeningChar(ifs)) {
 		std::cerr << "Invalid file format.";
 		return false;
 	}
@@ -169,7 +169,7 @@ bool HTMLTable::createTable(std::ifstream& ifs)
 
 	while (strcmp(buff, HTMLTableTypes::END_TABLE) != 0) {
 
-		if (!validOpenindChar(ifs)) {
+		if (!HelperFunctions::validOpeningChar(ifs)) {
 			std::cerr << "Invalid file format.";
 			return false;
 		}
@@ -182,7 +182,7 @@ bool HTMLTable::createTable(std::ifstream& ifs)
 		}
 
 		if (strcmp(buff, HTMLTableTypes::ROW) == 0) {
-			if (!createRow(ifs, rowIndex)) {
+			if (!table[rowIndex].createRow(ifs)) {
 				return false;
 			}
 
@@ -198,176 +198,23 @@ bool HTMLTable::createTable(std::ifstream& ifs)
 	return true;
 }
 
-bool HTMLTable::createRow(std::ifstream& ifs,int rowIndex)
-{
-	int cellIndex = 0;
-
-	char buff[MAX_LENGTH] = "";
-
-	while (strcmp(buff, HTMLTableTypes::END_ROW) != 0) {
-
-		if (!validOpenindChar(ifs)) {
-			std::cerr << "Invalid file format.";
-			return false;
-		}
-
-		ifs.getline(buff, MAX_LENGTH, '>');
-
-		if (ifs.eof()) {//if the getline function raised the eof bit the next lines are useless
-			std::cerr << "Invalid file format.";
-			return false;
-		}
-
-		if (strcmp(buff, HTMLTableTypes::FIELD) == 0) {
-			if (!createCell(ifs, rowIndex, cellIndex, 'h'))
-				return false;
-
-			cellIndex++;
-		}
-		if (strcmp(buff, HTMLTableTypes::CELL) == 0) {
-			if (!createCell(ifs, rowIndex, cellIndex, 'c')) 
-				return false;
-			
-			cellIndex++;
-		}
-	}
-	table[rowIndex].cellCount = cellIndex;
-
-	return true;
-}
-
-bool HTMLTable::createCell(std::ifstream& ifs,int rowIndex, int cellIndex, char type)
-{
-	char buff[MAX_LENGTH];
-	ifs.getline(buff, MAX_LENGTH, '<');
-
-	if (ifs.eof()) {
-		std::cerr << "Invalid file format.";
-		return false;
-	}
-
-	strcpy(buff,Field::interpretText(buff));//becasue the arrays are static we can rewrite the true text on the old buff
-
-	char closingAttrb[MAX_LENGTH];
-	ifs.getline(closingAttrb, MAX_LENGTH, '>');
-
-	if (type == 'f') {
-		if (strcmp(closingAttrb, HTMLTableTypes::END_FIELD) != 0) {
-			std::cerr << "Invalid file format.";
-			return false;
-		}
-	}
-
-	if (type == 'c') {
-		if (strcmp(closingAttrb, HTMLTableTypes::END_CELL) != 0) {
-			std::cerr << "Invalid file format.";
-			return false;
-		}
-	}
-	table[rowIndex].addCell(buff, type, cellIndex);
-	return true;
-}
-
-bool HTMLTable::validOpenindChar(std::ifstream& ifs)
-{
-	while (true) {
-		char temp = ifs.get();
-
-		if (ifs.eof()) {
-			return false;
-		}
-
-		if (temp != '\n' && temp != '\t' && temp != ' ') {
-			ifs.seekg(-1, std::ios::cur);
-			break;
-		}
-	}
-
-	return ifs.get() == '<';
-}
-
 void HTMLTable::shiftRowsBack(int id)
 {
-	if (id < 0 || id >= rows) {
+	if (id < 0 || id > rows) {
 		std::cerr << "Invalid input." <<std::endl;
 		return;
 	}
 	for (int i = rows; i > id; i--) {
-		changeRow(i, table[i-1]);
+		table[i].clearRow(maxCols);
+		table[i].changeRow(table[i-1]);
 	}
 }
 
 void HTMLTable::shiftRowsFront(int id)
 {
 	for (int i = id; i < rows; i++) {
-		changeRow(i, table[i + 1]);
-	}
-}
-
-void HTMLTable::clearRow(int id)
-{
-	for (int i = 0; i < maxCols; i++) {
-		table[id].changeCell(i, { "",'c' });
-	}
-}
-
-const char* HTMLTable::Field::interpretText(const char* str)
-{
-	char buff[MAX_LENGTH_FIELD] = "";
-	int id = 0;
-
-	std::stringstream ss(str);
-
-	while(true) {
-		char temp = ss.get();
-
-		if (ss.eof()) break;
-
-		if (temp != ENTITY_BEG) {
-			buff[id++] = temp;
-		}
-		else {
-			buff[id++] = entityConvert(ss);
-		}
-	}
-	return buff;
-}
-
-char HTMLTable::Field::entityConvert(std::stringstream& ss)
-{
-	int ASCIICode = 0;
-	char temp = ss.get();
-
-	if (temp != ENTITY_BEG_NUM) {//this means the '&' is not a beginning of entity, it is just a symbol
-		ss.seekg(-1, std::ios::cur);//continue reading like normally;
-		return ENTITY_BEG;
-	}
-
-	for (int i = 0; i < MAX_ASCIICODE_LEN; i++) {
-		temp = ss.get();
-
-		if (!isDigit(temp)) {
-			ss.seekg(-1, std::ios::cur);
-			break;
-		}
-
-		ASCIICode = ASCIICode * 10 + (temp - '0');
-	}
-
-	return (char)ASCIICode;
- }
-
-bool HTMLTable::Field::isDigit(char ch) 
-{
-	return (ch>='0' && ch<='9');
-}
-
-void HTMLTable::changeRow(int id, const Row& newRow)
-{
-	int rows = newRow.cellCount > table[id].cellCount ? newRow.cellCount : table[id].cellCount;
-
-	for (int i = 0; i < rows; i++) {
-		table[id].changeCell(i, newRow.getField(i));
+		table[i].clearRow(maxCols);
+		table[i].changeRow(table[i + 1]);
 	}
 }
 
@@ -394,7 +241,45 @@ void HTMLTable::writeTableToFile(std::ofstream& ofs)
 	ofs << "<" << HTMLTableTypes::END_TABLE << ">" << std::endl;
 }
 
-void HTMLTable::Row::addCell(const char* data, char type, int cellIndex)
+bool HTMLTable::Row::createRow(std::ifstream& ifs)
+{
+	int cellIndex = 0;
+
+	char buff[MAX_LENGTH] = "";
+
+	while (strcmp(buff, HTMLTableTypes::END_ROW) != 0) {
+
+		if (!HelperFunctions::validOpeningChar(ifs)) {
+			std::cerr << "Invalid file format.";
+			return false;
+		}
+
+		ifs.getline(buff, MAX_LENGTH, '>');
+
+		if (ifs.eof()) {//if the getline function raised the eof bit the next lines are useless
+			std::cerr << "Invalid file format.";
+			return false;
+		}
+
+		if (strcmp(buff, HTMLTableTypes::HEADER) == 0) {
+			if (!row[cellIndex].createCell(ifs, CellType::header))
+				return false;
+
+			cellIndex++;
+		}
+		if (strcmp(buff, HTMLTableTypes::CELL) == 0) {
+			if (!row[cellIndex].createCell(ifs, CellType::cell))
+				return false;
+
+			cellIndex++;
+		}
+	}
+	cellCount = cellIndex;
+
+	return true;
+}
+
+void HTMLTable::Row::addCell(const char* data, CellType type, int cellIndex)
 {
 	strcpy(row[cellIndex].fieldText, data);
 	row[cellIndex].type = type;
@@ -402,7 +287,7 @@ void HTMLTable::Row::addCell(const char* data, char type, int cellIndex)
 
 int HTMLTable::Row::getCellLen(int id) const
 {
-	if(row[id].type == 'c') return strlen(row[id].fieldText);
+	if(row[id].type == CellType::cell) return strlen(row[id].fieldText);
 
 	else return strlen(row[id].fieldText) + STARS_LEN;
 }
@@ -429,16 +314,6 @@ const HTMLTable::Field& HTMLTable::Row::getField(int id) const
 	return row[id];
 }
 
-void HTMLTable::Row::changeCell(int id, const Field& newCell)
-{
-	if (id < 0 || id >= MAX_LENGTH_ROW) {
-		std::cout << "Invalid index.";
-	}
-
-	row[id].type = newCell.type;
-	strcpy(row[id].fieldText, newCell.fieldText);
-}
-
 void HTMLTable::Row::writeRowToFile(std::ofstream& ofs, int fullRowLen)
 {
 	ofs << "<" << HTMLTableTypes::ROW << ">" << std::endl;
@@ -451,13 +326,31 @@ void HTMLTable::Row::writeRowToFile(std::ofstream& ofs, int fullRowLen)
 	ofs << "<" << HTMLTableTypes::END_ROW << ">" << std::endl;
 }
 
+void HTMLTable::Row::changeRow(const Row& newRow)
+{
+	int cols = newRow.cellCount >= cellCount ? newRow.cellCount : cellCount;
+
+	for (int i = 0; i < cols; i++) {
+
+		row[i].changeField(newRow.row[i]);
+	}
+	cellCount = newRow.cellCount;
+}
+
+void HTMLTable::Row::clearRow(int maxCols)
+{
+	for (int i = 0; i < maxCols; i++) {
+		row[i].changeField({ "hello", CellType::cell});
+	}
+}
+
 void HTMLTable::Row::print(const int* colsLen, int fullRowLen) const
 {
 	for (int i = 0; i < fullRowLen; i++) {
 		if (i == 0)
 			std::cout << "| ";
 
-		if (row[i].type == 'h') {
+		if (row[i].type == CellType::header) {
 			std::cout << "*" << (row[i].fieldText) << "*";
 			
 			align(colsLen[i] - (strlen(row[i].fieldText) + STARS_LEN));
@@ -473,14 +366,123 @@ void HTMLTable::Row::print(const int* colsLen, int fullRowLen) const
 
 void HTMLTable::Field::writeFieldToFile(std::ofstream& ofs)
 {
-	if (type == 'h') {
-		ofs << "<" << HTMLTableTypes::FIELD << ">";
+	if (type == CellType::header) {
+		ofs << "<" << HTMLTableTypes::HEADER << ">";
 		ofs << fieldText;
-		ofs << "<" << HTMLTableTypes::END_FIELD << ">" << std::endl;
+		ofs << "<" << HTMLTableTypes::END_HEADER << ">" << std::endl;
 	}
-	else if (type == 'c') {
+	else if (type == CellType::cell) {
 		ofs << "<" << HTMLTableTypes::CELL << ">";
 		ofs << fieldText;
 		ofs << "<" << HTMLTableTypes::END_CELL << ">" << std::endl;
 	}
+}
+
+bool HTMLTable::Field::createCell(std::ifstream& ifs, CellType newType)
+{
+	char buff[MAX_LENGTH];
+	ifs.getline(buff, MAX_LENGTH, '<');
+
+	if (ifs.eof()) {
+		std::cerr << "Invalid file format.";
+		return false;
+	}
+
+	strcpy(buff, HelperFunctions::interpretText(buff));//becasue the arrays are static we can rewrite the true text on the old buff
+
+	char closingAttrb[MAX_LENGTH];
+	ifs.getline(closingAttrb, MAX_LENGTH, '>');
+
+	if (newType == CellType::header) {
+		if (strcmp(closingAttrb, HTMLTableTypes::END_HEADER) != 0) {
+			std::cerr << "Invalid file format.";
+			return false;
+		}
+	}
+
+	if (newType == CellType::cell) {
+		if (strcmp(closingAttrb, HTMLTableTypes::END_CELL) != 0) {
+			std::cerr << "Invalid file format.";
+			return false;
+		}
+	}
+
+	strcpy(fieldText, buff);
+	type = newType;
+	return true;
+}
+
+void HTMLTable::Field::changeField(const Field& other)
+{
+	strcpy(fieldText, other.fieldText);
+	type = other.type;
+}
+
+const char* HelperFunctions::interpretText(const char* str)
+{
+	char buff[MAX_LENGTH_FIELD] = "";
+	int id = 0;
+
+	std::stringstream ss(str);
+
+	while (true) {
+		char temp = ss.get();
+
+		if (ss.eof()) break;
+
+		if (temp != ENTITY_BEG) {
+			buff[id++] = temp;
+		}
+		else {
+			buff[id++] = entityConvert(ss);
+		}
+	}
+	return buff;
+}
+
+char HelperFunctions::entityConvert(std::stringstream& ss)
+{
+	int ASCIICode = 0;
+	char temp = ss.get();
+
+	if (temp != ENTITY_BEG_NUM) {//this means the '&' is not a beginning of entity, it is just a symbol
+		ss.seekg(-1, std::ios::cur);//continue reading like normally;
+		return ENTITY_BEG;
+	}
+
+	for (int i = 0; i < MAX_ASCIICODE_LEN; i++) {
+		temp = ss.get();
+
+		if (!isDigit(temp)) {
+			ss.seekg(-1, std::ios::cur);
+			break;
+		}
+
+		ASCIICode = ASCIICode * 10 + (temp - '0');
+	}
+
+	return (char)ASCIICode;
+}
+
+bool HelperFunctions::isDigit(char ch)
+{
+	return (ch >= '0' && ch <= '9');
+}
+
+bool HelperFunctions::validOpeningChar(std::ifstream& ifs)
+{
+	while (true) {
+		char temp = ifs.get();
+
+		if (ifs.eof()) {
+			return false;
+		}
+
+		if (temp != '\n' && temp != '\t' && temp != ' ') {
+			ifs.seekg(-1, std::ios::cur);
+			break;
+		}
+	}
+
+	return ifs.get() == '<';
 }

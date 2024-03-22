@@ -17,34 +17,50 @@ namespace {
 	const char ENTITY_BEG_NUM = '#';//in entities the numbers start with '#'
 }
 
+namespace HelperFunctions {
+	const char* interpretText(const char* str);//not object related
+	char entityConvert(std::stringstream& ss);//not object related
+	bool isDigit(char ch);//not object related
+
+	bool validOpeningChar(std::ifstream& ifs);
+}
+
+enum class CellType {
+	header,
+	cell
+};
+
 class HTMLTable
 {
 private:
 	struct Field {
 		char fieldText[MAX_LENGTH_FIELD];
-		char type = 'c'; // h - header, c - cell
+		CellType type = CellType::cell; 
 
 		void writeFieldToFile(std::ofstream& ofs);
 
-		static const char* interpretText(const char* str);//not object related
-		static char entityConvert(std::stringstream& ss);//not object related
-		static bool isDigit(char ch);//not object related
+		bool createCell(std::ifstream& ifs, CellType type);
+		void changeField(const Field& other);
 	};
 
 	struct Row {
 		Field row[MAX_LENGTH_ROW] = { "" };
 		int cellCount = 0;
 
-		void addCell(const char* data, char type, int cellIndex);
+		bool createRow(std::ifstream& ifs);
+
+		void addCell(const char* data, CellType type, int cellIndex);
 		int getCellLen(int id) const;
 		void print(const int* colsLen, int fullRowLen) const;
 		void align(int n) const;
 
 		void changeText(int id,const char* newValue); 
 		const Field& getField(int id) const;
-		void changeCell(int id, const Field& newCell);
 		void writeRowToFile(std::ofstream& ofs, int fullRowLen);
+		void changeRow(const Row& newRow);
+		void clearRow(int maxCols);
 	};
+
 	Row table[MAX_LENGTH_TABLE];
 	int rows;
 	int maxCols;
@@ -52,14 +68,9 @@ private:
 	bool readTableFromFile(std::ifstream& ifs);
 
 	bool createTable(std::ifstream& ifs);
-	bool createRow(std::ifstream& ifs, int rowIndex);
-	bool createCell(std::ifstream& ifs, int rowIndex, int cellIndex, char type);
-	bool validOpenindChar(std::ifstream& ifs);
 
 	void shiftRowsBack(int id);
 	void shiftRowsFront(int id);
-	void clearRow(int id);
-	void changeRow(int id, const Row& newRow);
 
 	void writeTableToFile(std::ofstream& ofs);
 
